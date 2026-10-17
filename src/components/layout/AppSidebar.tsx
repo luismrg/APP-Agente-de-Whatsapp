@@ -185,9 +185,6 @@ export function AppSidebar({
       <div className="p-3 border-t border-slate-100 bg-slate-50/50">
         <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/70 shadow-xs">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs uppercase shrink-0">
-              {user.name.slice(0, 2)}
-            </div>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-slate-900 truncate">{user.name}</p>
               <span className="inline-flex items-center text-[10px] font-medium text-slate-500 uppercase tracking-wider">

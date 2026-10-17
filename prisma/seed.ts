@@ -63,8 +63,8 @@ async function main() {
   const business = await prisma.business.create({
     data: {
       name: "Talleres Digloff - Mecánica y Diagnosis",
-      phone: "+34 912 345 678",
-      address: "Calle Jacinto de los Santos, 42, Mirador Sur, Santo Domingo Este",
+      phone: "+1 809 345 678",
+      address: "Calle Jacintos de los Santos, 42, Mirador Este, Santo Domingo Este",
       defaultCapacity: 2, // 2 elevadores simultáneos
       slotDurationMinutes: 60,
       timezone: "Republica Dominicana/Santo Domingo",
@@ -589,7 +589,7 @@ Horario: {{HORARIO_TALLER}}.`,
       {
         conversationId: conv1.id,
         senderType: "IA",
-        content: "¡Listo! Te he reservado la cita para hoy a las 09:30 h con nuestro compañero Marcos. Durará unos 45 minutos. Te esperamos en Calle del Motor 42. ¡Muchas gracias!",
+        content: "¡Listo! Te he reservado la cita para hoy a las 09:30 h con nuestro compañero Marcos. Durará unos 45 minutos. Te esperamos en Calle Jacintos de los Santos, 42, Mirador Este, Santo Domingo Este. ¡Muchas gracias!",
         mediaType: "TEXTO",
         createdAt: new Date(Date.now() - 3600000 * 4.7),
       },

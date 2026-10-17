@@ -100,7 +100,7 @@ export function BusinessManager({ business }: BusinessManagerProps) {
             <input
               name="address"
               type="text"
-              defaultValue={business?.address || "Calle del Motor, 42, Polígono San Fernando, 28830 Madrid"}
+              defaultValue={business?.address || "Calle Jacintos de los Santos, 42, Mirador Este, Santo Domingo Este"}
               required
               className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl"
             />
