@@ -1,0 +1,230 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------------------------------------------
+// USUARIOS Y AUTENTICACIÓN
+// ---------------------------------------------
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  passwordHash  String
+  name          String
+  role          String         @default("EMPLEADO") // "ADMIN" | "EMPLEADO"
+  active        Boolean        @default(true)
+  conversations Conversation[]
+  appointments  Appointment[]
+  leads         Lead[]
+  messages      Message[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+// ---------------------------------------------
+// CONFIGURACIÓN DEL NEGOCIO Y TALLER
+// ---------------------------------------------
+model Business {
+  id                  String             @id @default(cuid())
+  name                String             @default("Talleres Digloff")
+  phone               String?
+  address             String?
+  logoUrl             String?
+  defaultCapacity     Int                @default(2) // Número de elevadores / citas simultáneas
+  slotDurationMinutes Int                @default(60)
+  timezone            String             @default("Europe/Madrid")
+  schedules           BusinessSchedule[]
+  holidays            Holiday[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model BusinessSchedule {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  dayOfWeek  Int      // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  openTime   String   @default("08:30") // "HH:mm"
+  closeTime  String   @default("19:00")
+  lunchStart String?  @default("13:30")
+  lunchEnd   String?  @default("15:00")
+  isOpen     Boolean  @default(true)
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  businessId  String
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  date        String   // "YYYY-MM-DD"
+  description String
+}
+
+// ---------------------------------------------
+// SERVICIOS DEL TALLER
+// ---------------------------------------------
+model Service {
+  id               String        @id @default(cuid())
+  name             String
+  description      String
+  durationMinutes  Int           @default(60)
+  priceFrom        Float?        // Precio orientativo "desde"
+  requiresEstimate Boolean       @default(false) // Requiere valoración previa
+  active           Boolean       @default(true)
+  appointments     Appointment[]
+  leads            Lead[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+// ---------------------------------------------
+// CONTACTOS Y VEHÍCULOS (CRM)
+// ---------------------------------------------
+model Contact {
+  id            String         @id @default(cuid())
+  phone         String         @unique // Formato normalizado: "34612345678"
+  jid           String?        @unique // "34612345678@s.whatsapp.net"
+  lid           String?        // WhatsApp LID ("xxxx@lid")
+  name          String?
+  email         String?
+  notes         String?
+  tags          String?        // Separadas por coma: "VIP, Flota, Particular"
+  stage         String         @default("NUEVO") // NUEVO, EN_CONVERSACION, PRESUPUESTO_ENVIADO, CITA_AGENDADA, GANADO, PERDIDO
+  vehicles      Vehicle[]
+  conversations Conversation[]
+  appointments  Appointment[]
+  leads         Lead[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Vehicle {
+  id           String        @id @default(cuid())
+  contactId    String
+  contact      Contact       @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  plate        String        // Matrícula normalizada (ej: "1234 ABC")
+  brand        String        // Marca (ej: "Seat")
+  model        String        // Modelo (ej: "León 1.6 TDI")
+  year         Int?          // Año
+  kilometers   Int?          // Kilómetros
+  notes        String?
+  appointments Appointment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([plate])
+}
+
+// ---------------------------------------------
+// POTENCIALES / OPORTUNIDADES (KANBAN)
+// ---------------------------------------------
+model Lead {
+  id               String    @id @default(cuid())
+  contactId        String
+  contact          Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  serviceId        String?
+  service          Service?  @relation(fields: [serviceId], references: [id])
+  title            String
+  estimatedValue   Float?
+  stage            String    @default("NUEVO") // "NUEVO" | "EN_CONVERSACION" | "PRESUPUESTO_ENVIADO" | "CITA_AGENDADA" | "GANADO" | "PERDIDO"
+  assignedToUserId String?
+  assignedToUser   User?     @relation(fields: [assignedToUserId], references: [id])
+  lastActivityAt   DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+// ---------------------------------------------
+// CITAS DEL TALLER (CALENDARIO)
+// ---------------------------------------------
+model Appointment {
+  id               String    @id @default(cuid())
+  contactId        String
+  contact          Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  vehicleId        String?
+  vehicle          Vehicle?  @relation(fields: [vehicleId], references: [id])
+  serviceId        String?
+  service          Service?  @relation(fields: [serviceId], references: [id])
+  startTime        DateTime
+  endTime          DateTime
+  status           String    @default("PENDIENTE") // "PENDIENTE" | "CONFIRMADA" | "EN_TALLER" | "LISTO_PARA_RECOGER" | "ENTREGADO" | "NO_PRESENTADO" | "CANCELADA"
+  source           String    @default("MANUAL")    // "IA" | "MANUAL"
+  assignedToUserId String?
+  assignedToUser   User?     @relation(fields: [assignedToUserId], references: [id])
+  notes            String?
+  readyNotifiedAt  DateTime? // Timestamp del aviso "Listo para recoger"
+  reminderSentAt   DateTime? // Timestamp del recordatorio 24h antes
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([startTime, endTime])
+}
+
+// ---------------------------------------------
+// MENSAJERÍA Y BANDEJA DE WHATSAPP (CHATWOOT STYLE)
+// ---------------------------------------------
+model Conversation {
+  id                  String    @id @default(cuid())
+  contactId           String
+  contact             Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  status              String    @default("ABIERTA") // "ABIERTA" | "RESUELTA"
+  aiActive            Boolean   @default(true)      // Interruptor por conversación
+  needsHumanAttention Boolean   @default(false)     // Marcador de derivación a persona
+  assignedToUserId    String?
+  assignedToUser      User?     @relation(fields: [assignedToUserId], references: [id])
+  unreadCount         Int       @default(0)
+  lastMessageAt       DateTime  @default(now())
+  messages            Message[]
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model Message {
+  id                String       @id @default(cuid())
+  conversationId    String
+  conversation      Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderType        String       // "CLIENTE" | "IA" | "EMPLEADO"
+  senderUserId      String?
+  senderUser        User?        @relation(fields: [senderUserId], references: [id])
+  content           String
+  mediaType         String       @default("TEXTO") // "TEXTO" | "IMAGEN" | "AUDIO" | "DOCUMENTO"
+  whatsappMessageId String?
+  isInternalNote    Boolean      @default(false)  // Nota interna privada del equipo
+  createdAt         DateTime     @default(now())
+}
+
+// ---------------------------------------------
+// CONFIGURACIÓN Y LOGS DE LA IA
+// ---------------------------------------------
+model AiSetting {
+  id                        String   @id @default(cuid())
+  enabled                   Boolean  @default(true)
+  model                     String   @default("google/gemini-2.5-flash")
+  temperature               Float    @default(0.4)
+  assistantName             String   @default("Digloff Asistente")
+  tone                      String   @default("Profesional, cercano y servicial")
+  systemPrompt              String
+  instructions              String   // Reglas de comportamiento y derivación
+  workshopKnowledge         String   // FAQ y datos del taller
+  autoReplyDebounceSeconds  Int      @default(8)
+  readyNotificationEnabled  Boolean  @default(true)
+  readyNotificationTemplate String   @default("Hola {{nombre}}, tu vehículo {{vehiculo}} ya está listo para ser recogido en el taller.")
+  reminderEnabled           Boolean  @default(true)
+  reminderTemplate          String   @default("Hola {{nombre}}, te recordamos tu cita mañana a las {{hora}} en Talleres Digloff para {{servicio}}.")
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+model AiLog {
+  id              String   @id @default(cuid())
+  conversationId  String?
+  toolName        String?
+  inputJson       String?
+  outputJson      String?
+  error           String?
+  executionTimeMs Int?
+  createdAt       DateTime @default(now())
+}
